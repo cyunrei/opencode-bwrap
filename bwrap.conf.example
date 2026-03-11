@@ -1,0 +1,32 @@
+# opencode bwrap configuration file
+# Format: type:source:destination
+# 
+# Available types:
+#   bind         - Read-write bind (source must exist)
+#   ro-bind      - Read-only bind (source must exist)
+#   bind-try     - Read-write bind (ignored if source doesn't exist)
+#   ro-bind-try  - Read-only bind (ignored if source doesn't exist)
+#   symlink      - Create symbolic link
+#
+# Both source and destination support ~ for $HOME
+
+# Development tools
+# bind:~/.local/share/go:~/.local/share/go
+# bind:~/.bun:~/.bun
+# bind:~/.m2:~/.m2
+# bind:~/.config/git:~/.config/git
+# bind:~/.cargo:~/.cargo
+# bind:~/.rustup:~/.rustup
+# bind:~/.npm:~/.npm
+# bind:~/.pnpm-store:~/.pnpm-store
+
+# Font cache
+# bind:~/.cache/fontconfig:~/.cache/fontconfig
+
+# Oh My OpenCode extension cache (optional, only needed if using extensions)
+# bind:~/.cache/oh-my-opencode:~/.cache/oh-my-opencode
+
+# Custom project directories (examples)
+# bind:~/Projects/myapp:~/Projects/myapp
+# ro-bind:~/Documents:~/Documents
+

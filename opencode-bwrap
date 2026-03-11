@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# opencode sandbox wrapper with configurable binds
+# Config file: ~/.config/opencode/bwrap.conf
+
+# Find opencode binary
+OPENCODE=$(command -v opencode 2>/dev/null || true)
+
+if [[ -z "$OPENCODE" ]]; then
+    echo "Error: opencode not found in PATH" >&2
+    exit 1
+fi
+
+# Default configuration directory
+CONFIG_DIR="${HOME}/.config/opencode-bwrap"
+CONFIG_FILE="${CONFIG_DIR}/bwrap.conf"
+
+# Base bwrap arguments (always included)
+args=(
+  --unshare-pid
+  --unshare-uts
+  --unshare-ipc
+  --share-net
+  --die-with-parent
+  --new-session
+
+  --dev /dev
+
+  --ro-bind /usr /usr
+  --ro-bind /etc /etc
+  --ro-bind /lib /lib
+  --ro-bind-try /lib64 /lib64
+  --ro-bind-try /lib32 /lib32
+
+  --symlink usr/bin /bin
+  --symlink usr/sbin /sbin
+
+  --proc /proc
+
+  --tmpfs /tmp
+  --tmpfs /run
+
+  # Base opencode directories
+  --bind "$HOME/.config/opencode" "$HOME/.config/opencode"
+  --bind "$HOME/.cache/opencode" "$HOME/.cache/opencode"
+  --bind "$HOME/.local/share/opencode" "$HOME/.local/share/opencode"
+  --bind "$HOME/.local/state/opencode" "$HOME/.local/state/opencode"
+)
+
+# Load additional bind mounts from config file
+load_config_binds() {
+  local count=0
+  if [[ -f "$CONFIG_FILE" ]]; then
+    echo "Loading binds from: $CONFIG_FILE" >&2
+    echo "----------------------------------------" >&2
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      # Skip empty lines and comments
+      [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+      
+      # Parse config line: type:source:destination
+      # type can be: bind, ro-bind, bind-try, ro-bind-try
+      local type src dest
+      
+      # Parse colon-separated config using read
+      IFS=':' read -r type src dest <<< "$line"
+      
+      # Trim leading/trailing whitespace
+      type=$(echo "$type" | xargs)
+      src=$(echo "$src" | xargs)
+      dest=$(echo "$dest" | xargs)
+      
+      # Skip incomplete configs
+      [[ -z "$type" || -z "$src" || -z "$dest" ]] && continue
+      
+      # Expand ~ to $HOME
+      src="${src/#\~/$HOME}"
+      dest="${dest/#\~/$HOME}"
+      
+      # Add bind arguments based on type
+      case "$type" in
+        bind)
+          if [[ -e "$src" ]]; then
+            args+=(--bind "$src" "$dest")
+            echo "[bind] $src -> $dest" >&2
+            count=$((count + 1))
+          else
+            echo "[bind] SKIP: $src (not found)" >&2
+          fi
+          ;;
+        ro-bind)
+          if [[ -e "$src" ]]; then
+            args+=(--ro-bind "$src" "$dest")
+            echo "[ro-bind] $src -> $dest" >&2
+            count=$((count + 1))
+          else
+            echo "[ro-bind] SKIP: $src (not found)" >&2
+          fi
+          ;;
+        bind-try)
+          args+=(--bind-try "$src" "$dest")
+          echo "[bind-try] $src -> $dest" >&2
+          count=$((count + 1))
+          ;;
+        ro-bind-try)
+          args+=(--ro-bind-try "$src" "$dest")
+          echo "[ro-bind-try] $src -> $dest" >&2
+          count=$((count + 1))
+          ;;
+        symlink)
+          args+=(--symlink "$src" "$dest")
+          echo "[symlink] $src -> $dest" >&2
+          count=$((count + 1))
+          ;;
+      esac
+    done < "$CONFIG_FILE"
+    echo "----------------------------------------" >&2
+    echo "Total custom binds loaded: $count" >&2
+    echo "" >&2
+  fi
+}
+
+# Load binds from config
+load_config_binds
+
+exec bwrap "${args[@]}" -- "$OPENCODE" "$@"
