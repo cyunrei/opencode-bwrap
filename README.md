@@ -4,7 +4,19 @@ An isolated Opencode runtime environment using bwrap.
 
 ## Installation
 
+### Option 1: Online Install (Recommended)
+
+One-line install directly from GitHub:
+
 ```bash
+curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/main/install-remote.sh | bash
+```
+
+### Option 2: Clone and Install
+
+```bash
+git clone https://github.com/cyunrei/opencode-bwrap.git
+cd opencode-bwrap
 make install
 ```
 
@@ -16,8 +28,18 @@ make install PREFIX=/usr/local
 
 ## Uninstallation
 
+### Option 1: Online Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/main/uninstall-remote.sh | bash
+```
+
+### Option 2: Local Uninstall
+
 ```bash
 make uninstall
+# or
+./uninstall.sh
 ```
 
 ## Configuration
