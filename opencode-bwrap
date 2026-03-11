@@ -60,25 +60,25 @@ load_config_binds() {
       
       # Parse config line: type:source:destination
       # type can be: bind, ro-bind, bind-try, ro-bind-try
-      local type src dest
+      local bind_type src dest
       
       # Parse colon-separated config using read
-      IFS=':' read -r type src dest <<< "$line"
+      IFS=':' read -r bind_type src dest <<< "$line"
       
       # Trim leading/trailing whitespace
-      type=$(echo "$type" | xargs)
+      bind_type=$(echo "$bind_type" | xargs)
       src=$(echo "$src" | xargs)
       dest=$(echo "$dest" | xargs)
       
       # Skip incomplete configs
-      [[ -z "$type" || -z "$src" || -z "$dest" ]] && continue
+      [[ -z "$bind_type" || -z "$src" || -z "$dest" ]] && continue
       
       # Expand ~ to $HOME
       src="${src/#\~/$HOME}"
       dest="${dest/#\~/$HOME}"
       
       # Add bind arguments based on type
-      case "$type" in
+      case "$bind_type" in
         bind)
           if [[ -e "$src" ]]; then
             args+=(--bind "$src" "$dest")
