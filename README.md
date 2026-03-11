@@ -1,96 +1,69 @@
 # Opencode Bwrap
 
-An isolated Opencode runtime environment using bwrap.
+Sandboxed Opencode runtime using bubblewrap with configurable bind mounts.
+
+## Quick Start
+
+```bash
+# Install
+curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/install-remote.sh | bash
+
+# Run (same as opencode)
+opencode-bwrap
+opencode-bwrap serve
+```
+
+## Usage
+
+`opencode-bwrap` works the same as `opencode` but runs in a sandbox.
+
+### Add Project Paths
+
+For security, **only configured paths are accessible**. Add your project and tool directories to `~/.config/opencode-bwrap/bwrap.conf`:
+
+```conf
+# Toolchains
+bind:~/.cargo:~/.cargo
+bind:~/.bun:~/.bun
+
+# Projects
+bind:~/projects:~/projects
+```
+
+Or enable quick access to current directory:
+```bash
+echo "bind:\$PWD:\$PWD" >> ~/.config/opencode-bwrap/bwrap.conf
+```
 
 ## Installation
 
-### Option 1: Online Install (Recommended)
-
-One-line install directly from GitHub:
-
+### Online
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/install-remote.sh | bash
 ```
 
-### Option 2: Clone and Install
-
+### Local
 ```bash
 git clone https://github.com/cyunrei/opencode-bwrap.git
-cd opencode-bwrap
-make install
+cd opencode-bwrap && make install
 ```
 
-By default installed to `~/.local/bin/`, you can specify a different path using `PREFIX`:
-
-```bash
-make install PREFIX=/usr/local
-```
-
-## Uninstallation
-
-### Option 1: Online Uninstall
-
+### Uninstall
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/uninstall-remote.sh | bash
 ```
 
-### Option 2: Local Uninstall
-
-```bash
-make uninstall
-# or
-./uninstall.sh
-```
-
 ## Configuration
 
+Config file: `~/.config/opencode-bwrap/bwrap.conf`
 
-The sandbox supports custom bind mounts through configuration files.
-### Configuration File Location
+Format: `type:source:destination`
 
-```
-~/.config/opencode-bwrap/bwrap.conf
-```
+Types: `bind`, `ro-bind`, `bind-try`, `ro-bind-try`, `symlink`
 
-### Configuration Format
-
-```
-# Format: type:source:destination
-type:source_path:destination_path
-```
-
-Supported types:
-
-- `bind` - Read-write bind (source must exist)
-- `ro-bind` - Read-only bind (source must exist)
-- `bind-try` - Read-write bind (ignored if source doesn't exist)
-- `ro-bind-try` - Read-only bind (ignored if source doesn't exist)
-- `symlink` - Create symbolic link
-
-### Example Configuration
-
-```
-# Development tools
-bind:~/.cargo:~/.cargo
-bind:~/.rustup:~/.rustup
-bind:~/.npm:~/.npm
-
-# Project directories
-ro-bind:~/Documents:~/Documents
-```
-
-See `bwrap.conf.example` for more examples.
-
-## Base Binds
-
-The following directories are always bound (no configuration needed):
-
-- `~/.config/opencode`
-- `~/.cache/opencode`
-- `~/.local/share/opencode`
-- `~/.local/state/opencode`
+See `bwrap.conf.example` for examples.
 
 ## Dependencies
 
 - `bwrap` (bubblewrap)
-- `opencode` (must be in PATH)
+- `opencode` (in PATH)

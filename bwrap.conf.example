@@ -26,6 +26,10 @@
 # Oh My OpenCode extension cache (optional, only needed if using extensions)
 # bind:~/.cache/oh-my-opencode:~/.cache/oh-my-opencode
 
+# Quick access to current directory (useful for ad-hoc work)
+# Uncomment this line to automatically mount whatever directory you run opencode-bwrap from
+# bind:$PWD:$PWD
+
 # Custom project directories (examples)
 # bind:~/Projects/myapp:~/Projects/myapp
 # ro-bind:~/Documents:~/Documents
