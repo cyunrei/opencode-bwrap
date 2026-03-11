@@ -4,11 +4,15 @@ Sandboxed Opencode runtime using bubblewrap with configurable bind mounts.
 
 ## Quick Start
 
-```bash
-# Install
-curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/install-remote.sh | bash
+### Install
 
-# Run (same as opencode)
+```bash
+curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/install-remote.sh | bash
+```
+
+###  Run (same as opencode)
+
+```bash
 opencode-bwrap
 opencode-bwrap serve
 ```
@@ -35,24 +39,6 @@ Or enable quick access to current directory:
 echo "bind:\$PWD:\$PWD" >> ~/.config/opencode-bwrap/bwrap.conf
 ```
 
-## Installation
-
-### Online
-```bash
-curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/install-remote.sh | bash
-```
-
-### Local
-```bash
-git clone https://github.com/cyunrei/opencode-bwrap.git
-cd opencode-bwrap && make install
-```
-
-### Uninstall
-```bash
-curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/uninstall-remote.sh | bash
-```
-
 ## Configuration
 
 Config file: `~/.config/opencode-bwrap/bwrap.conf`
@@ -62,6 +48,11 @@ Format: `type:source:destination`
 Types: `bind`, `ro-bind`, `bind-try`, `ro-bind-try`, `symlink`
 
 See `bwrap.conf.example` for examples.
+
+## Uninstall
+```bash
+curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/uninstall-remote.sh | bash
+```
 
 ## Dependencies
 
