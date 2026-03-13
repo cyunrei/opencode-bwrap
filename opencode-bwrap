@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # opencode sandbox wrapper with configurable binds
-# Config file: ~/.config/opencode/bwrap.conf
+# Config file: ~/.config/opencode-bwrap/bwrap.conf
 
 # Find opencode binary
 OPENCODE=$(command -v opencode 2>/dev/null || true)
