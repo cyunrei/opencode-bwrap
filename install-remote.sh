@@ -1,113 +1,133 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-REPO="cyunrei/opencode-bwrap"
-BRANCH="master"
-BINDIR="${HOME}/.local/bin"
-CONFIG_DIR="${HOME}/.config/opencode-bwrap"
+set -o errexit -o nounset -o errtrace
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Configuration
+readonly REPO="cyunrei/opencode-bwrap"
+readonly BRANCH="master"
+readonly BINDIR="${HOME}/.local/bin"
+readonly CONFIG_DIR="${HOME}/.config/opencode-bwrap"
 
-error() {
-    echo -e "${RED}Error: $1${NC}" >&2
-    exit 1
+# Logging Subsystem
+declare -g LOG_LEVEL="INFO"
+declare -g -A LOG_PRIORITY=(
+	["DEBUG"]=10
+	["INFO"]=20
+	["WARNING"]=30
+	["ERROR"]=40
+	["CRITICAL"]=50
+)
+
+log_color() {
+	local color="${1}"
+	shift
+	if [[ -t 2 ]]; then
+		printf "\x1b[0;%sm%s\x1b[0m\n" "${color}" "${*}" >&2
+	else
+		printf "%s\n" "${*}" >&2
+	fi
 }
 
-info() {
-    echo -e "${BLUE}$1${NC}"
+log_message() {
+	local color="${1}"
+	local level="${2}"
+	shift 2
+
+	if [[ "${LOG_PRIORITY[${level}]}" -lt "${LOG_PRIORITY[${LOG_LEVEL}]}" ]]; then
+		return 0
+	fi
+
+	log_color "${color}" "${*}"
 }
 
-success() {
-    echo -e "${GREEN}$1${NC}"
+log_error() { log_message 31 "ERROR" "${@}"; }
+log_info() { log_message 32 "INFO" "${@}"; }
+log_warning() { log_message 33 "WARNING" "${@}"; }
+log_debug() { log_message 34 "DEBUG" "${@}"; }
+log_success() { log_message 32 "INFO" "✓ ${*}"; }
+
+# Dependency Check
+require_command() {
+	local missing=()
+	for c in "${@}"; do
+		if ! command -v "${c}" >/dev/null 2>&1; then
+			missing+=("${c}")
+		fi
+	done
+
+	if [[ ${#missing[@]} -gt 0 ]]; then
+		log_error "Required command(s) not installed: ${missing[*]}"
+		log_error "Please install the missing dependencies and try again"
+		exit 1
+	fi
 }
 
-warning() {
-    echo -e "${YELLOW}$1${NC}"
-}
-
-check_dependencies() {
-    info "Checking dependencies..."
-    
-    if ! command -v curl >/dev/null 2>&1; then
-        error "curl is required but not installed"
-    fi
-    
-    if ! command -v bwrap >/dev/null 2>&1; then
-        error "bubblewrap (bwrap) is required but not installed"
-    fi
-    
-    if ! command -v opencode >/dev/null 2>&1; then
-        error "opencode is required but not found in PATH"
-    fi
-    
-    success "✓ All dependencies satisfied"
-}
-
+# Download file with error handling
 download_file() {
-    local url="$1"
-    local output="$2"
-    
-    if ! curl -fsSL "$url" -o "$output"; then
-        error "Failed to download from: $url"
-    fi
+	local url="${1}"
+	local output="${2}"
+
+	if ! curl -fsSL "${url}" -o "${output}"; then
+		log_error "Failed to download from: ${url}"
+		return 1
+	fi
 }
 
+# Main function
 main() {
-    echo "=========================================="
-    echo "Opencode-Bwrap Remote Installer"
-    echo "=========================================="
-    echo ""
-    
-    check_dependencies
-    
-    info "Installing from: ${REPO} (${BRANCH})"
-    info "Install directory: ${BINDIR}"
-    echo ""
-    
-    mkdir -p "${BINDIR}"
-    mkdir -p "${CONFIG_DIR}"
-    
-    info "Downloading opencode-bwrap..."
-    download_file "https://raw.githubusercontent.com/${REPO}/${BRANCH}/opencode-bwrap" "${BINDIR}/opencode-bwrap"
-    chmod +x "${BINDIR}/opencode-bwrap"
-    success "✓ Script installed"
-    
-    info "Downloading example config..."
-    download_file "https://raw.githubusercontent.com/${REPO}/${BRANCH}/bwrap.conf.example" "${CONFIG_DIR}/bwrap.conf.example"
-    success "✓ Example config installed"
-    
-    echo ""
-    echo "=========================================="
-    echo "Installation Summary"
-    echo "=========================================="
-    echo "Script: ${BINDIR}/opencode-bwrap"
-    echo "Config: ${CONFIG_DIR}/bwrap.conf.example"
-    echo ""
-    
-    if [[ ":${PATH}:" == *":${BINDIR}:"* ]]; then
-        success "✓ ${BINDIR} is in your PATH"
-    else
-        warning "! ${BINDIR} is NOT in your PATH"
-        echo ""
-        echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-        echo ""
-        echo "    export PATH=\"${BINDIR}:\$PATH\""
-        echo ""
-        echo "Then reload: source ~/.bashrc"
-    fi
+	echo "=========================================="
+	echo "Opencode-Bwrap Remote Installer"
+	echo "=========================================="
+	echo ""
 
-    echo ""
-    success "Installation complete!"
-    echo ""
-    echo "Usage:"
-    echo "    opencode-bwrap [args...]"
-    echo ""
-    echo "Configure binds by creating:"
-    echo "    ${CONFIG_DIR}/bwrap.conf"
+	log_info "Checking dependencies..."
+	require_command curl bwrap opencode
+	log_success "All dependencies satisfied"
+
+	log_info "Installing from: ${REPO} (${BRANCH})"
+	log_info "Install directory: ${BINDIR}"
+	echo ""
+
+	mkdir -p "${BINDIR}"
+	mkdir -p "${CONFIG_DIR}"
+
+	log_info "Downloading opencode-bwrap..."
+	download_file "https://raw.githubusercontent.com/${REPO}/${BRANCH}/opencode-bwrap" "${BINDIR}/opencode-bwrap"
+	chmod +x "${BINDIR}/opencode-bwrap"
+	log_success "Script installed"
+
+	log_info "Downloading example config..."
+	download_file "https://raw.githubusercontent.com/${REPO}/${BRANCH}/bwrap.conf.example" "${CONFIG_DIR}/bwrap.conf.example"
+	log_success "Example config installed"
+
+	echo ""
+	echo "=========================================="
+	echo "Installation Summary"
+	echo "=========================================="
+	echo "Script: ${BINDIR}/opencode-bwrap"
+	echo "Config: ${CONFIG_DIR}/bwrap.conf.example"
+	echo ""
+
+	if [[ ":${PATH}:" == *":${BINDIR}:"* ]]; then
+		log_success "${BINDIR} is in your PATH"
+	else
+		log_warning "${BINDIR} is NOT in your PATH"
+		echo ""
+		echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
+		echo ""
+		echo "    export PATH=\"${BINDIR}:\$PATH\""
+		echo ""
+		echo "Then reload: source ~/.bashrc"
+	fi
+
+	echo ""
+	log_success "Installation complete!"
+	echo ""
+	echo "Usage:"
+	echo "    opencode-bwrap [args...]"
+	echo ""
+	echo "Configure binds by creating:"
+	echo "    ${CONFIG_DIR}/bwrap.conf"
 }
 
-main "$@"
+main "${@}"

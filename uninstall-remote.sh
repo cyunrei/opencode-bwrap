@@ -1,76 +1,95 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-REPO="cyunrei/opencode-bwrap"
-BINDIR="${HOME}/.local/bin"
-CONFIG_DIR="${HOME}/.config/opencode-bwrap"
+set -o errexit -o nounset -o errtrace
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Configuration
+readonly REPO="cyunrei/opencode-bwrap"
+readonly BINDIR="${HOME}/.local/bin"
+readonly CONFIG_DIR="${HOME}/.config/opencode-bwrap"
 
-error() {
-    echo -e "${RED}Error: $1${NC}" >&2
-    exit 1
+# Logging Subsystem
+declare -g LOG_LEVEL="INFO"
+declare -g -A LOG_PRIORITY=(
+	["DEBUG"]=10
+	["INFO"]=20
+	["WARNING"]=30
+	["ERROR"]=40
+	["CRITICAL"]=50
+)
+
+log_color() {
+	local color="${1}"
+	shift
+	if [[ -t 2 ]]; then
+		printf "\x1b[0;%sm%s\x1b[0m\n" "${color}" "${*}" >&2
+	else
+		printf "%s\n" "${*}" >&2
+	fi
 }
 
-success() {
-    echo -e "${GREEN}$1${NC}"
+log_message() {
+	local color="${1}"
+	local level="${2}"
+	shift 2
+
+	if [[ "${LOG_PRIORITY[${level}]}" -lt "${LOG_PRIORITY[${LOG_LEVEL}]}" ]]; then
+		return 0
+	fi
+
+	log_color "${color}" "${*}"
 }
 
-warning() {
-    echo -e "${YELLOW}$1${NC}"
-}
+log_error() { log_message 31 "ERROR" "${@}"; }
+log_info() { log_message 32 "INFO" "${@}"; }
+log_warning() { log_message 33 "WARNING" "${@}"; }
+log_debug() { log_message 34 "DEBUG" "${@}"; }
+log_success() { log_message 32 "INFO" "✓ ${*}"; }
 
-info() {
-    echo -e "${BLUE}$1${NC}"
-}
-
+# Main function
 main() {
-    echo "=========================================="
-    echo "Opencode-Bwrap Remote Uninstaller"
-    echo "Repository: ${REPO}"
-    echo "=========================================="
-    echo ""
-    
-    local script_removed=false
-    local config_removed=false
-    
-    if [[ -f "${BINDIR}/opencode-bwrap" ]]; then
-        info "Removing: ${BINDIR}/opencode-bwrap"
-        rm -f "${BINDIR}/opencode-bwrap"
-        success "✓ Script removed"
-        script_removed=true
-    else
-        warning "! Script not found at ${BINDIR}/opencode-bwrap"
-    fi
-    
-    echo ""
-    if [[ -d "${CONFIG_DIR}" ]]; then
-        echo -e "${YELLOW}Configuration directory found: ${CONFIG_DIR}${NC}"
-        read -p "Do you want to remove configuration files? (y/N): " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "${CONFIG_DIR}"
-            success "✓ Configuration removed"
-            config_removed=true
-        else
-            warning "! Configuration kept at: ${CONFIG_DIR}"
-        fi
-    else
-        info "Configuration directory not found"
-    fi
-    
-    echo ""
-    echo "=========================================="
-    if [[ "$script_removed" == true ]] || [[ "$config_removed" == true ]]; then
-        success "Uninstallation complete!"
-    else
-        warning "Nothing was removed"
-    fi
-    echo "=========================================="
+	echo "=========================================="
+	echo "Opencode-Bwrap Remote Uninstaller"
+	echo "Repository: ${REPO}"
+	echo "=========================================="
+	echo ""
+
+	local script_removed=false
+	local config_removed=false
+
+	if [[ -f "${BINDIR}/opencode-bwrap" ]]; then
+		log_info "Removing: ${BINDIR}/opencode-bwrap"
+		rm -f "${BINDIR}/opencode-bwrap"
+		log_success "Script removed"
+		script_removed=true
+	else
+		log_warning "Script not found at ${BINDIR}/opencode-bwrap"
+	fi
+
+	echo ""
+	if [[ -d "${CONFIG_DIR}" ]]; then
+		log_warning "Configuration directory found: ${CONFIG_DIR}"
+		local reply
+		read -p "Do you want to remove configuration files? (y/N): " -n 1 -r reply
+		echo ""
+		if [[ ${reply} =~ ^[Yy]$ ]]; then
+			rm -rf "${CONFIG_DIR}"
+			log_success "Configuration removed"
+			config_removed=true
+		else
+			log_warning "Configuration kept at: ${CONFIG_DIR}"
+		fi
+	else
+		log_info "Configuration directory not found"
+	fi
+
+	echo ""
+	echo "=========================================="
+	if [[ "${script_removed}" == true ]] || [[ "${config_removed}" == true ]]; then
+		log_success "Uninstallation complete!"
+	else
+		log_warning "Nothing was removed"
+	fi
+	echo "=========================================="
 }
 
-main "$@"
+main "${@}"

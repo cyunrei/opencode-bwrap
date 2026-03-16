@@ -1,126 +1,177 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # opencode sandbox wrapper with configurable binds
 # Config file: ~/.config/opencode-bwrap/bwrap.conf
 
-# Find opencode binary
-OPENCODE=$(command -v opencode 2>/dev/null || true)
+set -o errexit -o nounset -o errtrace
 
-if [[ -z "$OPENCODE" ]]; then
-    echo "Error: opencode not found in PATH" >&2
-    exit 1
-fi
+# Configuration
+readonly CONFIG_DIR="${HOME}/.config/opencode-bwrap"
+readonly CONFIG_FILE="${CONFIG_DIR}/bwrap.conf"
 
-# Default configuration directory
-CONFIG_DIR="${HOME}/.config/opencode-bwrap"
-CONFIG_FILE="${CONFIG_DIR}/bwrap.conf"
-
-# Base bwrap arguments (always included)
-args=(
-  --unshare-pid
-  --unshare-uts
-  --unshare-ipc
-  --share-net
-  --die-with-parent
-  --new-session
-
-  --dev /dev
-
-  --ro-bind /usr /usr
-  --ro-bind /etc /etc
-  --ro-bind /lib /lib
-  --ro-bind-try /lib64 /lib64
-  --ro-bind-try /lib32 /lib32
-
-  --symlink usr/bin /bin
-  --symlink usr/sbin /sbin
-
-  --proc /proc
-
-  --tmpfs /tmp
-  --tmpfs /run
-
-  # Base opencode directories
-  --bind "$HOME/.config/opencode" "$HOME/.config/opencode"
-  --bind "$HOME/.cache/opencode" "$HOME/.cache/opencode"
-  --bind "$HOME/.local/share/opencode" "$HOME/.local/share/opencode"
-  --bind "$HOME/.local/state/opencode" "$HOME/.local/state/opencode"
+# Logging Subsystem
+declare -g LOG_LEVEL="INFO"
+declare -g -A LOG_PRIORITY=(
+    ["DEBUG"]=10
+    ["INFO"]=20
+    ["WARNING"]=30
+    ["ERROR"]=40
+    ["CRITICAL"]=50
 )
 
-# Load additional bind mounts from config file
-load_config_binds() {
-  local count=0
-  if [[ -f "$CONFIG_FILE" ]]; then
-    echo "Loading binds from: $CONFIG_FILE" >&2
-    echo "----------------------------------------" >&2
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      # Skip empty lines and comments
-      [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-      
-      # Parse config line: type:source:destination
-      # type can be: bind, ro-bind, bind-try, ro-bind-try
-      local bind_type src dest
-      
-      # Parse colon-separated config using read
-      IFS=':' read -r bind_type src dest <<< "$line"
-      
-      # Trim leading/trailing whitespace
-      bind_type=$(echo "$bind_type" | xargs)
-      src=$(echo "$src" | xargs)
-      dest=$(echo "$dest" | xargs)
-      
-      # Skip incomplete configs
-      [[ -z "$bind_type" || -z "$src" || -z "$dest" ]] && continue
-      
-      # Expand ~ to $HOME
-      src="${src/#\~/$HOME}"
-      dest="${dest/#\~/$HOME}"
-      
-      # Add bind arguments based on type
-      case "$bind_type" in
-        bind)
-          if [[ -e "$src" ]]; then
-            args+=(--bind "$src" "$dest")
-            echo "[bind] $src -> $dest" >&2
-            count=$((count + 1))
-          else
-            echo "[bind] SKIP: $src (not found)" >&2
-          fi
-          ;;
-        ro-bind)
-          if [[ -e "$src" ]]; then
-            args+=(--ro-bind "$src" "$dest")
-            echo "[ro-bind] $src -> $dest" >&2
-            count=$((count + 1))
-          else
-            echo "[ro-bind] SKIP: $src (not found)" >&2
-          fi
-          ;;
-        bind-try)
-          args+=(--bind-try "$src" "$dest")
-          echo "[bind-try] $src -> $dest" >&2
-          count=$((count + 1))
-          ;;
-        ro-bind-try)
-          args+=(--ro-bind-try "$src" "$dest")
-          echo "[ro-bind-try] $src -> $dest" >&2
-          count=$((count + 1))
-          ;;
-        symlink)
-          args+=(--symlink "$src" "$dest")
-          echo "[symlink] $src -> $dest" >&2
-          count=$((count + 1))
-          ;;
-      esac
-    done < "$CONFIG_FILE"
-    echo "----------------------------------------" >&2
-    echo "Total custom binds loaded: $count" >&2
-    echo "" >&2
-  fi
+log_color() {
+    local color="${1}"
+    shift
+    if [[ -t 2 ]]; then
+        printf "\x1b[0;%sm%s\x1b[0m\n" "${color}" "${*}" >&2
+    else
+        printf "%s\n" "${*}" >&2
+    fi
 }
 
-# Load binds from config
-load_config_binds
+log_message() {
+    local color="${1}"
+    local level="${2}"
+    shift 2
 
-exec bwrap "${args[@]}" -- "$OPENCODE" "$@"
+    if [[ "${LOG_PRIORITY[${level}]}" -lt "${LOG_PRIORITY[${LOG_LEVEL}]}" ]]; then
+        return 0
+    fi
+
+    log_color "${color}" "${*}"
+}
+
+log_error()   { log_message 31 "ERROR"   "${@}"; }
+log_info()    { log_message 32 "INFO"    "${@}"; }
+log_warning() { log_message 33 "WARNING" "${@}"; }
+log_debug()   { log_message 34 "DEBUG"   "${@}"; }
+
+# Dependency Check
+require_command() {
+    local missing=()
+    for c in "${@}"; do
+        if ! command -v "${c}" >/dev/null 2>&1; then
+            missing+=("${c}")
+        fi
+    done
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        log_error "Required command(s) not installed: ${missing[*]}"
+        exit 1
+    fi
+}
+
+# Main function
+main() {
+    require_command opencode bwrap
+
+    local opencode_bin
+    opencode_bin="$(command -v opencode)"
+
+    # Base bwrap arguments (always included)
+    local args=(
+        --unshare-pid
+        --unshare-uts
+        --unshare-ipc
+        --share-net
+        --die-with-parent
+        --new-session
+
+        --dev /dev
+
+        --ro-bind /usr /usr
+        --ro-bind /etc /etc
+        --ro-bind /lib /lib
+        --ro-bind-try /lib64 /lib64
+        --ro-bind-try /lib32 /lib32
+
+        --symlink usr/bin /bin
+        --symlink usr/sbin /sbin
+
+        --proc /proc
+
+        --tmpfs /tmp
+        --tmpfs /run
+
+        # Base opencode directories
+        --bind "${HOME}/.config/opencode" "${HOME}/.config/opencode"
+        --bind "${HOME}/.cache/opencode" "${HOME}/.cache/opencode"
+        --bind "${HOME}/.local/share/opencode" "${HOME}/.local/share/opencode"
+        --bind "${HOME}/.local/state/opencode" "${HOME}/.local/state/opencode"
+    )
+
+    # Load additional bind mounts from config file
+    local count=0
+    if [[ -f "${CONFIG_FILE}" ]]; then
+        log_info "Loading binds from: ${CONFIG_FILE}"
+        log_info "----------------------------------------"
+
+        while IFS= read -r line || [[ -n "${line}" ]]; do
+            # Skip empty lines and comments
+            [[ -z "${line}" || "${line}" =~ ^[[:space:]]*# ]] && continue
+
+            # Parse config line: type:source:destination
+            local bind_type src dest
+
+            # Parse colon-separated config using read
+            IFS=':' read -r bind_type src dest <<< "${line}"
+
+            # Trim leading/trailing whitespace
+            bind_type="$(echo "${bind_type}" | xargs)"
+            src="$(echo "${src}" | xargs)"
+            dest="$(echo "${dest}" | xargs)"
+
+            # Skip incomplete configs
+            [[ -z "${bind_type}" || -z "${src}" || -z "${dest}" ]] && continue
+
+            # Expand ~ to $HOME
+            src="${src/#\~/${HOME}}"
+            dest="${dest/#\~/${HOME}}"
+
+            # Add bind arguments based on type
+            case "${bind_type}" in
+                bind)
+                    if [[ -e "${src}" ]]; then
+                        args+=(--bind "${src}" "${dest}")
+                        log_info "[bind] ${src} -> ${dest}"
+                        count=$((count + 1))
+                    else
+                        log_warning "[bind] SKIP: ${src} (not found)"
+                    fi
+                    ;;
+                ro-bind)
+                    if [[ -e "${src}" ]]; then
+                        args+=(--ro-bind "${src}" "${dest}")
+                        log_info "[ro-bind] ${src} -> ${dest}"
+                        count=$((count + 1))
+                    else
+                        log_warning "[ro-bind] SKIP: ${src} (not found)"
+                    fi
+                    ;;
+                bind-try)
+                    args+=(--bind-try "${src}" "${dest}")
+                    log_info "[bind-try] ${src} -> ${dest}"
+                    count=$((count + 1))
+                    ;;
+                ro-bind-try)
+                    args+=(--ro-bind-try "${src}" "${dest}")
+                    log_info "[ro-bind-try] ${src} -> ${dest}"
+                    count=$((count + 1))
+                    ;;
+                symlink)
+                    args+=(--symlink "${src}" "${dest}")
+                    log_info "[symlink] ${src} -> ${dest}"
+                    count=$((count + 1))
+                    ;;
+            esac
+        done < "${CONFIG_FILE}"
+
+        log_info "----------------------------------------"
+        log_info "Total custom binds loaded: ${count}"
+        log_info ""
+    fi
+
+    exec bwrap "${args[@]}" -- "${opencode_bin}" "${@}"
+}
+
+main "${@}"
