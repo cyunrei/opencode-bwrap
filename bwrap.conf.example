@@ -8,7 +8,8 @@
 #   ro-bind-try  - Read-only bind (ignored if source doesn't exist)
 #   symlink      - Create symbolic link
 #
-# Both source and destination support ~ for $HOME
+# Both source and destination support ~ for $HOME and shell-expanded
+# environment variables (e.g. $PWD, $XDG_CACHE_HOME)
 
 # Development tools
 # bind:~/.local/share/go:~/.local/share/go
