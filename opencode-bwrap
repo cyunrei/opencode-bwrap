@@ -121,12 +121,14 @@ main() {
             src="$(echo "${src}" | xargs)"
             dest="$(echo "${dest}" | xargs)"
 
+            # Expand shell variables and expressions in src/dest (e.g. $PWD and ~)
+            # NOTE: eval executes code from the user's own config file; that's intended.
+            # set +u makes unset variables expand to "" so they are skipped below.
+            src="$(set +u; eval echo "${src}")"
+            dest="$(set +u; eval echo "${dest}")"
+
             # Skip incomplete configs
             [[ -z "${bind_type}" || -z "${src}" || -z "${dest}" ]] && continue
-
-            # Expand ~ to $HOME
-            src="${src/#\~/${HOME}}"
-            dest="${dest/#\~/${HOME}}"
 
             # Add bind arguments based on type
             case "${bind_type}" in

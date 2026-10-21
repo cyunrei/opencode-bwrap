@@ -10,7 +10,7 @@ Sandboxed Opencode runtime using bubblewrap with configurable bind mounts.
 curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/install-remote.sh | bash
 ```
 
-###  Run (same as opencode)
+### Run (same as opencode)
 
 ```bash
 opencode-bwrap
@@ -35,6 +35,7 @@ bind:~/projects:~/projects
 ```
 
 Or enable quick access to current directory:
+
 ```bash
 echo "bind:\$PWD:\$PWD" >> ~/.config/opencode-bwrap/bwrap.conf
 ```
@@ -47,9 +48,12 @@ Format: `type:source:destination`
 
 Types: `bind`, `ro-bind`, `bind-try`, `ro-bind-try`, `symlink`
 
+Source/Destination: shell variables are supported and `~` is expended to `$HOME`.
+
 See `bwrap.conf.example` for examples.
 
 ## Uninstall
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/cyunrei/opencode-bwrap/master/uninstall-remote.sh | bash
 ```
