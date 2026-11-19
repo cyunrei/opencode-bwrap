@@ -10,6 +10,11 @@
 #
 # Both source and destination support ~ for $HOME and shell-expanded
 # environment variables (e.g. $PWD, $XDG_CACHE_HOME)
+#
+# WARNING: Values are evaluated using eval, so shell commands may be
+# executed on the host. Only use trusted configurations and environment
+# variables.
+
 
 # Development tools
 # bind:~/.local/share/go:~/.local/share/go
